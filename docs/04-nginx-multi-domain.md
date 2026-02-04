@@ -91,6 +91,12 @@ server {
     ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
 
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+
     if ($host = www.example.com) {
         return 301 https://example.com$request_uri;
     }
@@ -146,6 +152,12 @@ server {
     listen [::]:443 ssl http2;
     ssl_certificate /etc/letsencrypt/live/app.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/app.example.com/privkey.pem;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
 }
 
 server {
@@ -182,8 +194,19 @@ sudo systemctl reload nginx
 ---
 
 ## 6) DNS prerequisite (important)
+Before SSL:
 
-Bef7) Queue Worker Service (Optional - for Laravel)
+- Domain A records **must** point to the server IP
+- Test with:
+
+```bash
+dig +short example.com
+dig +short app.example.com
+```
+
+---
+
+## 7) Queue Worker Service (Optional - for Laravel)
 
 If your application uses Laravel queues, create a systemd service file:
 
@@ -243,16 +266,3 @@ Add:
 ✅ HTTPS with automatic redirects  
 ✅ Production-ready Nginx configuration  
 ✅ Ready for Laravel queue workers (optional)
-
-```bash
-dig +short example.com
-dig +short app.example.com
-```
-
----
-
-## Result
-
-✅ Multiple domains hosted on one VPS  
-✅ Clean per-domain logs  
-✅ Ready for PHP & SSL

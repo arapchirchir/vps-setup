@@ -57,6 +57,10 @@ docker --version
 docker compose version
 ```
 
+> Security note: avoid adding non-admin users to the `docker` group. Docker group membership is equivalent to root.
+
+---
+
 ---
 
 ## 3) Clone Mailcow
@@ -250,7 +254,28 @@ Expected open ports:
 
 ---
 
-## 12) Access Mailcow UI
+## 12) Firewall rules (UFW)
+
+Allow mail-related ports:
+
+```bash
+sudo ufw allow 25/tcp
+sudo ufw allow 465/tcp
+sudo ufw allow 587/tcp
+sudo ufw allow 993/tcp
+sudo ufw allow 995/tcp
+sudo ufw allow 4190/tcp
+```
+
+Verify:
+
+```bash
+sudo ufw status verbose
+```
+
+---
+
+## 13) Access Mailcow UI
 
 Open:
 
@@ -258,7 +283,7 @@ Open:
 
 ---
 
-## 13) Reset Admin Password
+## 14) Reset Admin Password
 
 ```bash
 cd /opt/mailcow-dockerized
@@ -272,7 +297,7 @@ Login:
 
 ---
 
-## 14) Add Domain + Mailboxes
+## 15) Add Domain + Mailboxes
 
 Mailcow UI:
 
@@ -299,7 +324,7 @@ TXT _dmarc.second-domain.tld -> v=DMARC1; p=reject; rua=mailto:dmarc@second-doma
 
 ---
 
-## 15) DKIM + SPF + DMARC (Deliverability)
+## 16) DKIM + SPF + DMARC (Deliverability)
 
 Mailcow UI:
 
@@ -320,7 +345,7 @@ v=DMARC1; p=reject; rua=mailto:dmarc@example.com; fo=1
 
 ---
 
-## 16) PTR (Reverse DNS)
+## 17) PTR (Reverse DNS)
 
 Set PTR at your VPS provider:
 
@@ -329,7 +354,7 @@ Set PTR at your VPS provider:
 
 ---
 
-## 17) Updates
+## 18) Updates
 
 Mailcow:
 
@@ -352,7 +377,7 @@ certbot renew --dry-run
 
 ---
 
-## 18) Backups
+## 19) Backups
 
 ```bash
 cd /opt/mailcow-dockerized
@@ -369,7 +394,7 @@ For a full disaster recovery playbook and offsite strategy, see [09-operations-a
 
 ---
 
-## 19) Troubleshooting (quick)
+## 20) Troubleshooting (quick)
 
 - Port conflicts: `ss -tulpen | grep :PORT`
 - Containers: `docker compose ps`

@@ -45,6 +45,13 @@ PasswordAuthentication no
 PubkeyAuthentication yes
 X11Forwarding no
 AllowUsers deploy
+PermitEmptyPasswords no
+ChallengeResponseAuthentication no
+MaxAuthTries 3
+MaxSessions 2
+LoginGraceTime 30
+ClientAliveInterval 300
+ClientAliveCountMax 2
 ```
 
 Save and exit.

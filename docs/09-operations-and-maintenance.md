@@ -85,6 +85,32 @@ sudo journalctl -u postgresql --no-pager -n 200
 
 ---
 
+## Log rotation
+
+Ensure log rotation runs daily:
+
+```bash
+sudo systemctl status logrotate.timer --no-pager -l
+```
+
+---
+
+## Backups and restore testing
+
+- Encrypt backups at rest
+- Store offsite
+- Perform a test restore monthly
+
+---
+
+## Monitoring (minimum)
+
+- Review authentication failures in `/var/log/auth.log`
+- Review Nginx error logs for spikes or 4xx/5xx bursts
+- Alert on disk usage > 80%
+
+---
+
 ## System updates
 
 ### Safe upgrade procedure

@@ -37,6 +37,7 @@ apt install -y curl unzip git ca-certificates lsb-release software-properties-co
 ```bash
 timedatectl set-timezone Africa/Nairobi
 timedatectl status
+timedatectl set-ntp true
 ```
 
 ---
@@ -134,6 +135,14 @@ sudo chmod 440 /etc/sudoers.d/deploy
 ```
 
 > `chown` sets ownership to root:root, `chmod` sets permissions to 440 (read-only for owner/group)
+
+### Optional sudo hardening
+
+Limit how long sudo stays authenticated (in minutes):
+
+```text
+Defaults:deploy timestamp_timeout=5
+```
 
 ### Validate sudoers configuration
 

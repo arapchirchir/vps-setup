@@ -81,6 +81,44 @@ DB_PASSWORD=StrongPasswordHere
 
 ---
 
+## 5) PostgreSQL hardening (recommended)
+
+Edit the main config:
+
+```bash
+sudo nano /etc/postgresql/16/main/postgresql.conf
+```
+
+Set or confirm:
+
+```ini
+listen_addresses = 'localhost'
+ssl = on
+password_encryption = scram-sha-256
+```
+
+Edit client authentication:
+
+```bash
+sudo nano /etc/postgresql/16/main/pg_hba.conf
+```
+
+Ensure local connections use scram:
+
+```text
+local   all             all                                     scram-sha-256
+host    all             all             127.0.0.1/32            scram-sha-256
+host    all             all             ::1/128                 scram-sha-256
+```
+
+Reload PostgreSQL:
+
+```bash
+sudo systemctl reload postgresql
+```
+
+---
+
 ## Troubleshooting
 
 ### Laravel migration fails with schema error

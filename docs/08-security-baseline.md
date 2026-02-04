@@ -34,7 +34,7 @@ This baseline is suitable for **production workloads**.
 
 ---
 
-## Recommended additional hardening (optional but strong)
+## Recommended additional hardening (enable for production)
 
 ### 1) Automatic security updates
 
@@ -62,7 +62,56 @@ sudo fail2ban-client status
 
 ---
 
-### 3) Reduce attack surface
+### 3) Audit logging (auditd)
+
+```bash
+sudo apt install -y auditd audispd-plugins
+sudo systemctl enable --now auditd
+```
+
+---
+
+### 4) Log rotation
+
+Ensure log rotation is active:
+
+```bash
+sudo systemctl status logrotate.timer --no-pager -l
+```
+
+---
+
+### 5) Backups with encryption + restore test
+
+- Encrypt backups at rest
+- Store offsite
+- Test restore regularly
+
+---
+
+### 6) Web security headers (Nginx)
+
+Enable security headers in Nginx HTTPS blocks:
+
+- HSTS
+- X-Frame-Options
+- X-Content-Type-Options
+- Referrer-Policy
+- Permissions-Policy
+
+---
+
+### 7) AppArmor (process confinement)
+
+Ubuntu ships with AppArmor enabled by default. Confirm status:
+
+```bash
+sudo aa-status
+```
+
+---
+
+### 8) Reduce attack surface
 
 - Avoid exposing databases publicly
 - Remove unused packages
