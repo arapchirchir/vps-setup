@@ -129,8 +129,11 @@ deploy NOPASSWD: /bin/systemctl postgresql restart
 ### Set correct permissions
 
 ```bash
+sudo chown root:root /etc/sudoers.d/deploy
 sudo chmod 440 /etc/sudoers.d/deploy
 ```
+
+> `chown` sets ownership to root:root, `chmod` sets permissions to 440 (read-only for owner/group)
 
 ### Validate sudoers configuration
 
