@@ -236,31 +236,33 @@ This option allows you to use **Cloudflare-issued certificates** instead of Let'
 
 ### 8.2) Save certificates on server
 
+Create the directory using the same structure as Let's Encrypt:
+
 ```bash
-sudo mkdir -p /etc/cloudflare/certs
+sudo mkdir -p /etc/letsencrypt/live/example.com/
 ```
 
-Create certificate file:
+Create the certificate (fullchain) file:
 
 ```bash
-sudo nano /etc/cloudflare/certs/example.com.crt
+sudo nano /etc/letsencrypt/live/example.com/fullchain.pem
 ```
 
 Paste the **certificate** content, save and exit.
 
-Create private key file:
+Create the private key file:
 
 ```bash
-sudo nano /etc/cloudflare/certs/example.com.key
+sudo nano /etc/letsencrypt/live/example.com/privkey.pem
 ```
 
 Paste the **private key** content, save and exit.
 
-Set permissions:
+Set correct permissions:
 
 ```bash
-sudo chmod 600 /etc/cloudflare/certs/example.com.key
-sudo chmod 644 /etc/cloudflare/certs/example.com.crt
+sudo chmod 600 /etc/letsencrypt/live/example.com/privkey.pem
+sudo chmod 644 /etc/letsencrypt/live/example.com/fullchain.pem
 ```
 
 ### 8.3) Update Nginx server blocks for Cloudflare certificates
@@ -276,8 +278,8 @@ Update the SSL directives to use Cloudflare certificates:
 ```nginx
 listen 443 ssl http2;
 listen [::]:443 ssl http2;
-ssl_certificate     /etc/cloudflare/certs/example.com.crt;
-ssl_certificate_key /etc/cloudflare/certs/example.com.key;
+ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
+ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
 ```
 
 ### 8.4) Test and start Nginx
