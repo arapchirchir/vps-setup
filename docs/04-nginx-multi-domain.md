@@ -41,6 +41,7 @@ Set ownership and permissions:
 sudo chown -R exampleuser:www-data /home/exampleuser/exampleapp
 sudo find /home/exampleuser/exampleapp -type d -exec chmod 755 {} \;
 sudo find /home/exampleuser/exampleapp -type f -exec chmod 644 {} \;
+sudo chmod 755 /home/exampleuser
 ```
 
 Make storage and cache writable by both user and Nginx:
@@ -194,6 +195,7 @@ sudo systemctl reload nginx
 ---
 
 ## 6) DNS prerequisite (important)
+
 Before SSL:
 
 - Domain A records **must** point to the server IP
@@ -206,7 +208,97 @@ dig +short app.example.com
 
 ---
 
-## 7) Queue Worker Service (Optional - for Laravel)
+## 7) SSL Certificates: Option A - Let's Encrypt (Certbot)
+
+See [07-letsencrypt.md](07-letsencrypt.md) for full Let's Encrypt setup with Certbot.
+
+---
+
+## 8) SSL Certificates: Option B - Cloudflare Origin CA
+
+This option allows you to use **Cloudflare-issued certificates** instead of Let's Encrypt.
+
+### Prerequisites
+
+- Your domain is proxied through Cloudflare
+- You have access to Cloudflare dashboard
+- Cloudflare SSL/TLS is set to **Full** or **Full (strict)**
+
+### 8.1) Generate Cloudflare Origin CA Certificate
+
+1. Log into **Cloudflare Dashboard**
+2. Navigate to **SSL/TLS** → **Origin Server**
+3. Click **Create Certificate**
+4. Select:
+   - Certificate format: **PEM** (for Nginx)
+   - Hostname: `example.com` and `*.example.com` (wildcard for all subdomains)
+5. Copy the **certificate** and **private key**
+
+### 8.2) Save certificates on server
+
+```bash
+sudo mkdir -p /etc/cloudflare/certs
+```
+
+Create certificate file:
+
+```bash
+sudo nano /etc/cloudflare/certs/example.com.crt
+```
+
+Paste the **certificate** content, save and exit.
+
+Create private key file:
+
+```bash
+sudo nano /etc/cloudflare/certs/example.com.key
+```
+
+Paste the **private key** content, save and exit.
+
+Set permissions:
+
+```bash
+sudo chmod 600 /etc/cloudflare/certs/example.com.key
+sudo chmod 644 /etc/cloudflare/certs/example.com.crt
+```
+
+### 8.3) Update Nginx server blocks for Cloudflare certificates
+
+Edit your Nginx config:
+
+```bash
+sudo nano /etc/nginx/sites-available/example.com
+```
+
+Update the SSL directives to use Cloudflare certificates:
+
+```nginx
+listen 443 ssl http2;
+listen [::]:443 ssl http2;
+ssl_certificate     /etc/cloudflare/certs/example.com.crt;
+ssl_certificate_key /etc/cloudflare/certs/example.com.key;
+```
+
+### 8.4) Test and start Nginx
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 8.5) Certificate renewal
+
+Cloudflare Origin CA certificates are valid for **15 years**. Renewal is manual:
+
+- Before expiry, return to Cloudflare dashboard
+- Create a new certificate
+- Update `/etc/cloudflare/certs/` files
+- Reload Nginx
+
+---
+
+## 9) Queue Worker Service (Optional - for Laravel)
 
 If your application uses Laravel queues, create a systemd service file:
 
@@ -243,7 +335,7 @@ sudo systemctl status exampleapp-queue
 
 ---
 
-## 8) Laravel Scheduler (Optional - via Cron)
+## 10) Laravel Scheduler (Optional - via Cron)
 
 If your application uses Laravel scheduler:
 
