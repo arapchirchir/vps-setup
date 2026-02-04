@@ -89,16 +89,41 @@ root
 Instead of relying only on group membership, we define sudo access explicitly
 using `/etc/sudoers.d`. This approach is safer, clearer, and easier to audit.
 
-### Create a sudoers file for the user
+### Option A: Full sudo access
 
 ```bash
 sudo visudo -f /etc/sudoers.d/deploy
 ```
 
-Add the following line:
+Add the following line for unrestricted access:
 
 ```text
 deploy ALL=(ALL:ALL) ALL
+```
+
+This grants the user full sudo access to all commands (with password prompt).
+
+### Option B: Partial sudo access (recommended for specific tasks)
+
+For security, you can limit sudo to specific commands without a password prompt:
+
+```bash
+sudo visudo -f /etc/sudoers.d/deploy
+```
+
+Add:
+
+```text
+deploy ALL=(ALL:ALL) NOPASSWD: /bin/systemctl
+```
+
+Or for even more granular control, specific commands only:
+
+```text
+deploy NOPASSWD: /bin/systemctl nginx reload
+deploy NOPASSWD: /bin/systemctl nginx status
+deploy NOPASSWD: /bin/systemctl php8.3-fpm restart
+deploy NOPASSWD: /bin/systemctl postgresql restart
 ```
 
 ### Set correct permissions
@@ -111,4 +136,28 @@ sudo chmod 440 /etc/sudoers.d/deploy
 
 ```bash
 sudo visudo -c
+```
+
+---
+
+## 7) Sudo usage examples
+
+### Full access (Option A)
+
+```bash
+sudo whoami
+# Prompts for password
+```
+
+### Partial access (Option B)
+
+```bash
+sudo /bin/systemctl nginx reload
+# No password prompt (if configured with NOPASSWD)
+
+sudo /bin/systemctl nginx status
+# No password prompt (if configured with NOPASSWD)
+
+sudo apt install -y somepackage
+# Denied (not in allowed list)
 ```
