@@ -101,7 +101,29 @@ ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["php-fpm"]
 ```
 
-## 3) docker-compose.yml (slim)
+## 3) docker/entrypoint.sh (development only)
+
+Use this to auto-start Vite in the background only for development:
+
+```bash
+#!/bin/bash
+set -e
+
+if [ "${APP_ENV:-production}" = "development" ] || [ "${APP_ENV:-production}" = "local" ]; then
+    # Install Node dependencies
+    npm install
+
+    # Start Vite in the background
+    npm run dev &
+fi
+
+# Execute the main container command
+exec "$@"
+```
+
+Set `APP_ENV=development` (or `APP_ENV=local`) in development, and keep `APP_ENV=production` on server deployments.
+
+## 4) docker-compose.yml (slim)
 
 ```yaml
 services:
@@ -160,7 +182,7 @@ networks:
     driver: bridge
 ```
 
-## 4) docker/nginx/default.conf
+## 5) docker/nginx/default.conf
 
 ```nginx
 server {
@@ -197,7 +219,7 @@ server {
 }
 ```
 
-## 5) .dockerignore
+## 6) .dockerignore
 
 ```text
 .env
@@ -224,7 +246,7 @@ yarn-error.log
 /bootstrap/cache/services.php
 ```
 
-## 6) Vite config (TailwindCSS + hot reload)
+## 7) Vite config (TailwindCSS + hot reload)
 
 The `server` block below is required:
 
@@ -248,7 +270,7 @@ export default defineConfig({
 });
 ```
 
-## 7) Host Nginx reverse proxy
+## 8) Host Nginx reverse proxy
 
 File:
 
@@ -279,7 +301,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-## 8) systemd auto-start (reusable template)
+## 9) systemd auto-start (reusable template)
 
 Create once:
 
@@ -325,7 +347,7 @@ sudo systemctl enable --now compose@tecworld
 sudo systemctl enable --now compose@acquihub
 ```
 
-## 9) Deployment strategy (GitHub Actions + appleboy/ssh-action)
+## 10) Deployment strategy (GitHub Actions + appleboy/ssh-action)
 
 We use rolling replace (minimal downtime).
 
@@ -347,7 +369,7 @@ docker image prune -f
 
 Repeat for acquihub.
 
-## 10) GitHub Actions example
+## 11) GitHub Actions example
 
 ```yaml
 - name: Deploy to VPS
@@ -365,7 +387,7 @@ Repeat for acquihub.
       docker image prune -f
 ```
 
-## 11) Post-deployment checks
+## 12) Post-deployment checks
 
 ```bash
 docker compose ps
@@ -373,7 +395,7 @@ docker compose logs -f
 curl -I http://127.0.0.1:8001
 ```
 
-## 12) Key principles
+## 13) Key principles
 
 - One Linux user per project
 - One compose stack per project
@@ -381,7 +403,7 @@ curl -I http://127.0.0.1:8001
 - systemd ensures auto-start on reboot
 - Deploy via rolling replace (no `docker compose down`)
 
-## 13) Notes on downtime
+## 14) Notes on downtime
 
 Current strategy provides:
 
