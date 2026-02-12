@@ -480,3 +480,37 @@ docker system prune -a --volumes -f
 ```
 
 After these commands, `docker ps` and `docker images` should be empty.
+
+### Delete only one resource (safe targeted cleanup)
+
+If you only want to remove one container/image instead of everything, use these:
+
+1. Stop and remove one container by name:
+
+```bash
+docker stop tail-tap-nginx
+docker rm tail-tap-nginx
+```
+
+2. Remove one image by name or ID:
+
+```bash
+docker rmi nginx:alpine
+# or
+docker rmi <image_id>
+```
+
+3. Force remove one image if it is still referenced:
+
+```bash
+docker rmi -f nginx:alpine
+```
+
+4. Remove one volume or network (if no container is using it):
+
+```bash
+docker volume rm <volume_name>
+docker network rm <network_name>
+```
+
+Tip: list exact names first with `docker ps -a`, `docker images`, `docker volume ls`, and `docker network ls`.
