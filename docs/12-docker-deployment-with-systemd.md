@@ -565,3 +565,48 @@ docker network rm <network_name>
 ```
 
 Tip: list exact names first with `docker ps -a`, `docker images`, `docker volume ls`, and `docker network ls`.
+
+## 16) Troubleshooting
+
+### Permission denied errors
+
+If you see `file_put_contents(...): Permission denied` or similar errors:
+
+- **Cause:** The `www` user inside the container (UID 1000) doesn't have write access to `storage` or `bootstrap/cache` on the host.
+- **Solution:** See section 6 "Fixing permission errors for storage and cache directories" above.
+
+Quick fix:
+
+```bash
+sudo chown -R 1000:1000 storage bootstrap/cache
+chmod -R 775 storage bootstrap/cache
+docker compose restart
+```
+
+### Container won't start or exits immediately
+
+Check logs:
+
+```bash
+docker compose logs app
+```
+
+Common causes:
+
+- Missing `.env` file
+- Invalid environment variables
+- PHP syntax errors
+- Port conflicts (another process using port 9000)
+
+### Database connection refused
+
+- Check if the `db` container is running: `docker compose ps`
+- Verify database credentials in `.env` match `docker-compose.yml`
+- Ensure `DB_HOST` is set to the service name (for example `db`, not `localhost`)
+
+### Vite not accessible or hot reload not working
+
+- Confirm port 5173 is exposed in `docker-compose.yml`
+- Check if `APP_ENV=development` or `APP_ENV=local` is set
+- Verify `vite.config.js` has `host: '0.0.0.0'` and `hmr.host: 'localhost'`
+- Restart containers: `docker compose restart`
