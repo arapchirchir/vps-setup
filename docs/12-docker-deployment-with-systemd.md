@@ -434,3 +434,49 @@ Current strategy provides:
 - Safe and simple GitHub-based deployment
 
 For strict zero-downtime, blue/green or load balancing is required.
+
+## 15) Full Docker reset (delete all containers and images)
+
+Use this only when you want to completely wipe Docker on the host.
+
+It can reclaim large space (for example about `9.38GB`), but Docker will not delete anything still marked as in use.
+
+### 1. Stop and kill all running containers
+
+This terminates active processes for all stacks (for example `tail-tap` and `social-app`).
+
+```bash
+docker stop $(docker ps -q)
+```
+
+### 2. Remove all containers
+
+This deletes container instances.
+
+```bash
+docker rm $(docker ps -aq)
+```
+
+### 3. Force remove all images
+
+This removes all local images (Postgres, Nginx, Node, and others).
+
+```bash
+docker rmi -f $(docker images -q)
+```
+
+### Why a previous cleanup may not clear everything
+
+If a container is running (for example `Up 4 hours`), Docker keeps its image locked and cannot remove it.
+
+After stopping and removing containers first, the images can be deleted.
+
+### Clean up leftovers (volumes and networks)
+
+Run this to remove dangling resources, including volumes:
+
+```bash
+docker system prune -a --volumes -f
+```
+
+After these commands, `docker ps` and `docker images` should be empty.
