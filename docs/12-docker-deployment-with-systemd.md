@@ -246,6 +246,28 @@ yarn-error.log
 /bootstrap/cache/services.php
 ```
 
+### Why `docker/data/db` is needed
+
+Inside the project `docker/` folder, each path has a specific role:
+
+- `docker/data/db`: PostgreSQL persistent data on the host
+- `docker/entrypoint.sh`: app container startup logic (including dev-only Vite start)
+- `docker/nginx/default.conf`: Nginx virtual host config for the container
+
+For PostgreSQL persistence, this mapping in `docker-compose.yml` is critical:
+
+```yaml
+db:
+  volumes:
+    - ./docker/data/db:/var/lib/postgresql/data
+```
+
+- `./docker/data/db` is the host folder in your project.
+- `/var/lib/postgresql/data` is PostgreSQL's data directory inside the container.
+- If the container is recreated (for example `docker compose down` then `up`), database files remain in `./docker/data/db`, so data is not lost.
+
+`docker/data/` is intentionally listed in `.dockerignore` so database files are never copied into Docker image builds. This keeps images small and avoids shipping or overwriting live database data during build.
+
 ## 7) Vite config (TailwindCSS + hot reload)
 
 The `server` block below is required:
