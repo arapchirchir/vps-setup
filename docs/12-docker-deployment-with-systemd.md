@@ -16,6 +16,8 @@ Each domain/project runs as:
 | techworld.co.ke | tecworld   | /home/tecworld/app | 8081          |
 | acquihub.africa | acquihub   | /home/acquihub/app | 8082          |
 
+If you add more dockerized sites, repeat these steps for each app with its own Linux user, home directory, and a unique localhost port (for example 8083, 8084). Keep the port consistent between docker-compose and the host Nginx proxy.
+
 ## 1) Project structure (per application)
 
 Example for techworld:
@@ -119,6 +121,12 @@ networks:
 volumes:
   techworld_pg:
 ```
+
+Port binding breakdown for "127.0.0.1:8081:80":
+
+- 127.0.0.1: bind only on localhost (not public)
+- 8081: host port the reverse proxy connects to
+- 80: container port where Nginx listens inside the container
 
 ## 4) Host Nginx reverse proxy
 
