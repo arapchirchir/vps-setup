@@ -7,61 +7,101 @@ Each domain/project runs as:
 - Separate Linux user
 - Separate home directory
 - Separate Docker Compose stack
-- Reverse proxied by host Nginx
+- Reverse proxied by host Nginx (optional)
 
 ### Example projects
 
 | Domain          | Linux User | App Directory      | Internal Port |
 | --------------- | ---------- | ------------------ | ------------- |
-| techworld.co.ke | tecworld   | /home/tecworld/app | 8081          |
-| acquihub.africa | acquihub   | /home/acquihub/app | 8082          |
+| techworld.co.ke | tecworld   | /home/tecworld/app | 8001          |
+| acquihub.africa | acquihub   | /home/acquihub/app | 8002          |
 
-If you add more dockerized sites, repeat these steps for each app with its own Linux user, home directory, and a unique localhost port (for example 8083, 8084). Keep the port consistent between docker-compose and the host Nginx proxy.
+If you add more dockerized sites, repeat these steps for each app with its own Linux user, home directory, and a unique host port (for example 8003, 8004). Keep the port consistent between `docker-compose.yml` and the host Nginx proxy.
 
 ## 1) Project structure (per application)
 
 Example for techworld:
 
-```
+```text
 /home/tecworld/app
 ├── Dockerfile
 ├── docker-compose.yml
+├── .dockerignore
+├── vite.config.js
 ├── docker/
+│   ├── entrypoint.sh
+│   ├── data/
+│   │   └── db/
 │   └── nginx/
 │       └── default.conf
 └── Laravel application files
 ```
 
-## 2) Dockerfile (Laravel production image)
+## 2) Dockerfile (supports hot reload)
 
 ```dockerfile
-FROM php:8.3-fpm-alpine
+# Set the base image
+FROM php:8.3-fpm
 
-RUN apk add --no-cache \
-    bash curl git unzip icu-dev oniguruma-dev libzip-dev \
-    postgresql-dev \
-  && docker-php-ext-install \
-    intl mbstring zip pdo pdo_pgsql opcache \
-  && rm -rf /var/cache/apk/*
-
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
+# Set working directory
 WORKDIR /var/www/html
 
-COPY composer.json composer.lock ./
-RUN composer install --no-interaction --no-progress --prefer-dist --optimize-autoloader
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    libfreetype6-dev \
+    locales \
+    zip \
+    jpegoptim optipng pngquant gifsicle \
+    vim \
+    unzip \
+    git \
+    curl \
+    libonig-dev \
+    libzip-dev \
+    libpq-dev
 
+# Install Node.js
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs
+
+# Clear cache
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install extensions
+RUN docker-php-ext-install pdo_mysql pdo_pgsql mbstring zip exif pcntl
+RUN docker-php-ext-configure gd --with-freetype --with-jpeg
+RUN docker-php-ext-install gd
+
+# Install Composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+
+# Add user for laravel application
+RUN groupadd -g 1000 www
+RUN useradd -u 1000 -ms /bin/bash -g www www
+
+# Copy existing application directory contents
 COPY . .
 
-RUN chmod -R 775 storage bootstrap/cache || true
+# Copy existing application directory permissions
+COPY --chown=www:www . /var/www/html
 
+# Copy entrypoint script
+COPY docker/entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Change current user to www
+USER www
+
+# Expose port 9000 and start php-fpm server
 EXPOSE 9000
+ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["php-fpm"]
 ```
 
-## 3) docker-compose.yml (production)
-
-Example for techworld (port 8081):
+## 3) docker-compose.yml (slim)
 
 ```yaml
 services:
@@ -69,70 +109,150 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: techworld_app
+    container_name: tail-tap-app
     restart: unless-stopped
     working_dir: /var/www/html
     volumes:
-      - /home/tecworld/app:/var/www/html
-    environment:
-      APP_ENV: production
-      APP_DEBUG: "false"
-      DB_CONNECTION: pgsql
-      DB_HOST: db
-      DB_PORT: 5432
-      DB_DATABASE: techworld
-      DB_USERNAME: techworld
-      DB_PASSWORD: change_me_strong
-    depends_on:
-      - db
+      - .:/var/www/html
+    ports:
+      - "5173:5173"
     networks:
-      - techworld_net
+      - tail-tap
 
   nginx:
-    image: nginx:1.27-alpine
-    container_name: techworld_nginx
+    image: nginx:alpine
+    container_name: tail-tap-nginx
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8081:80"
+      - "8001:80"
     volumes:
-      - /home/tecworld/app:/var/www/html
-      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-    depends_on:
-      - app
+      - .:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
     networks:
-      - techworld_net
+      - tail-tap
 
   db:
-    image: postgres:15-alpine
-    container_name: techworld_db
+    image: postgres:13
+    container_name: tail-tap-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: techworld
-      POSTGRES_USER: techworld
-      POSTGRES_PASSWORD: change_me_strong
+      POSTGRES_DB: ${DB_DATABASE:-laravel}
+      POSTGRES_USER: ${DB_USERNAME:-user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
     volumes:
-      - techworld_pg:/var/lib/postgresql/data
+      - ./docker/data/db:/var/lib/postgresql/data
+    ports:
+      - "54321:5432"
     networks:
-      - techworld_net
+      - tail-tap
+
+  redis:
+    image: redis:alpine
+    container_name: tail-tap-redis
+    restart: unless-stopped
+    ports:
+      - "63791:6379"
+    networks:
+      - tail-tap
 
 networks:
-  techworld_net:
-
-volumes:
-  techworld_pg:
+  tail-tap:
+    driver: bridge
 ```
 
-Port binding breakdown for "127.0.0.1:8081:80":
+## 4) docker/nginx/default.conf
 
-- 127.0.0.1: bind only on localhost (not public)
-- 8081: host port the reverse proxy connects to
-- 80: container port where Nginx listens inside the container
+```nginx
+server {
+    listen 80;
+    server_name _;
+    root /var/www/html/public;
 
-## 4) Host Nginx reverse proxy
+    add_header X-Frame-Options "SAMEORIGIN";
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Content-Type-Options "nosniff";
+
+    index index.php;
+
+    charset utf-8;
+
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    location = /favicon.ico { access_log off; log_not_found off; }
+    location = /robots.txt  { access_log off; log_not_found off; }
+
+    error_page 404 /index.php;
+
+    location ~ \.php$ {
+        fastcgi_pass app:9000;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+    }
+
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+}
+```
+
+## 5) .dockerignore
+
+```text
+.env
+.env.backup
+.env.production
+.git
+.gitignore
+.idea
+.vscode
+docker-compose.yml
+docker/data/
+node_modules
+public/storage
+storage/framework/cache/data/
+storage/framework/sessions/
+storage/framework/testing/
+storage/framework/views/
+storage/logs/
+vendor
+.DS_Store
+npm-debug.log
+yarn-error.log
+/bootstrap/cache/packages.php
+/bootstrap/cache/services.php
+```
+
+## 6) Vite config (TailwindCSS + hot reload)
+
+The `server` block below is required:
+
+```js
+import { defineConfig } from 'vite';
+import laravel from 'laravel-vite-plugin';
+
+export default defineConfig({
+    server: {
+        host: '0.0.0.0',
+        hmr: {
+            host: 'localhost',
+        },
+    },
+    plugins: [
+        laravel({
+            input: ['resources/css/app.css', 'resources/js/app.js'],
+            refresh: true,
+        }),
+    ],
+});
+```
+
+## 7) Host Nginx reverse proxy
 
 File:
 
-```
+```text
 /etc/nginx/sites-available/techworld.co.ke
 ```
 
@@ -142,7 +262,7 @@ server {
     server_name techworld.co.ke www.techworld.co.ke;
 
     location / {
-        proxy_pass http://127.0.0.1:8081;
+        proxy_pass http://127.0.0.1:8001;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -159,7 +279,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-## 5) systemd auto-start (reusable template)
+## 8) systemd auto-start (reusable template)
 
 Create once:
 
@@ -205,7 +325,7 @@ sudo systemctl enable --now compose@tecworld
 sudo systemctl enable --now compose@acquihub
 ```
 
-## 6) Deployment strategy (GitHub Actions + appleboy/ssh-action)
+## 9) Deployment strategy (GitHub Actions + appleboy/ssh-action)
 
 We use rolling replace (minimal downtime).
 
@@ -227,7 +347,7 @@ docker image prune -f
 
 Repeat for acquihub.
 
-## 7) GitHub Actions example
+## 10) GitHub Actions example
 
 ```yaml
 - name: Deploy to VPS
@@ -245,24 +365,23 @@ Repeat for acquihub.
       docker image prune -f
 ```
 
-## 8) Post-deployment checks
+## 11) Post-deployment checks
 
 ```bash
 docker compose ps
 docker compose logs -f
-curl -I http://127.0.0.1:8081
+curl -I http://127.0.0.1:8001
 ```
 
-## 9) Key principles
+## 12) Key principles
 
 - One Linux user per project
 - One compose stack per project
-- Containers bound to 127.0.0.1
 - Host Nginx handles public traffic and SSL
 - systemd ensures auto-start on reboot
-- Deploy via rolling replace (no docker compose down)
+- Deploy via rolling replace (no `docker compose down`)
 
-## 10) Notes on downtime
+## 13) Notes on downtime
 
 Current strategy provides:
 
