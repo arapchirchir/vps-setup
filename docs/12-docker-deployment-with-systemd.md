@@ -131,6 +131,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    image: tail-tap-app
     container_name: tail-tap-app
     restart: unless-stopped
     working_dir: /var/www/html
@@ -154,7 +155,7 @@ services:
       - tail-tap
 
   db:
-    image: postgres:13
+    image: postgres:16
     container_name: tail-tap-db
     restart: unless-stopped
     environment:
@@ -180,6 +181,33 @@ services:
 networks:
   tail-tap:
     driver: bridge
+```
+
+### Laravel `.env` for Docker networking
+
+When Laravel runs inside the `app` container, use Docker service names:
+
+```env
+DB_HOST=db
+DB_PORT=5432
+REDIS_HOST=redis
+REDIS_PORT=6379
+```
+
+Run Laravel maintenance commands from inside the container:
+
+```bash
+docker compose exec -T app php artisan migrate --force
+docker compose exec -T app php artisan optimize
+```
+
+If you run `php artisan ...` from the VPS host directly, use mapped host ports instead:
+
+```env
+DB_HOST=127.0.0.1
+DB_PORT=54321
+REDIS_HOST=127.0.0.1
+REDIS_PORT=63791
 ```
 
 ## 5) docker/nginx/default.conf
@@ -286,14 +314,15 @@ Run these commands from your host machine's terminal (not inside the container) 
 # Navigate to your project directory (replace with your actual path)
 cd /home/tecworld/app
 
-# Set ownership to UID 1000 (matches the www user in the container)
-sudo chown -R 1000:1000 storage bootstrap/cache
+# Set ownership to UID 1000 and GID 33 (www-data group)
+sudo chown -R 1000:33 storage bootstrap/cache
 
-# Set appropriate permissions
-sudo chmod -R 775 storage bootstrap/cache
+# Keep group write and setgid so new files inherit group
+sudo find storage bootstrap/cache -type d -exec chmod 2775 {} \;
+sudo find storage bootstrap/cache -type f -exec chmod 664 {} \;
 ```
 
-**Why UID 1000?**
+**Why UID 1000 and GID 33?**
 
 The Dockerfile creates the `www` user with UID 1000:
 
@@ -302,15 +331,14 @@ RUN groupadd -g 1000 www
 RUN useradd -u 1000 -ms /bin/bash -g www www
 ```
 
-When volumes are mounted from the host, the container uses numeric UIDs to determine file access. By setting the host directories to UID 1000, the `www` user inside the container can write to them.
+When volumes are mounted from the host, the container uses numeric IDs to determine file access. UID `1000` matches the `www` user in the container, and GID `33` maps to `www-data` on Ubuntu. This allows both the app container user and Nginx/PHP host group workflows to write logs and cache files safely.
 
 #### Alternative: Run commands inside the container
 
 If you prefer to set permissions from inside the container:
 
 ```bash
-docker compose exec app chown -R www:www storage bootstrap/cache
-docker compose exec app chmod -R 775 storage bootstrap/cache
+docker compose exec -T -u root app sh -lc "chown -R 1000:33 storage bootstrap/cache && find storage bootstrap/cache -type d -exec chmod 2775 {} + && find storage bootstrap/cache -type f -exec chmod 664 {} +"
 ```
 
 **Important:** After running these commands, restart your containers to ensure changes take effect:
@@ -578,8 +606,9 @@ If you see `file_put_contents(...): Permission denied` or similar errors:
 Quick fix:
 
 ```bash
-sudo chown -R 1000:1000 storage bootstrap/cache
-sudo chmod -R 775 storage bootstrap/cache
+sudo chown -R 1000:33 storage bootstrap/cache
+sudo find storage bootstrap/cache -type d -exec chmod 2775 {} \;
+sudo find storage bootstrap/cache -type f -exec chmod 664 {} \;
 docker compose restart
 ```
 
@@ -602,7 +631,9 @@ Common causes:
 
 - Check if the `db` container is running: `docker compose ps`
 - Verify database credentials in `.env` match `docker-compose.yml`
-- Ensure `DB_HOST` is set to the service name (for example `db`, not `localhost`)
+- If running Laravel inside Docker, ensure `DB_HOST=db` and `DB_PORT=5432`
+- If running Laravel from host, use `DB_HOST=127.0.0.1` and `DB_PORT=54321`
+- If you see `could not translate host name "db"`, run Artisan via `docker compose exec -T app ...` or switch host DB values as above
 
 ### Vite not accessible or hot reload not working
 
