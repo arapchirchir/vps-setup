@@ -283,14 +283,14 @@ This happens because the `www` user inside the container (UID 1000) does not hav
 Run these commands from your host machine's terminal (not inside the container) in your project directory:
 
 ```bash
-# Navigate to your project directory
+# Navigate to your project directory (replace with your actual path)
 cd /home/tecworld/app
 
 # Set ownership to UID 1000 (matches the www user in the container)
 sudo chown -R 1000:1000 storage bootstrap/cache
 
 # Set appropriate permissions
-chmod -R 775 storage bootstrap/cache
+sudo chmod -R 775 storage bootstrap/cache
 ```
 
 **Why UID 1000?**
@@ -579,7 +579,7 @@ Quick fix:
 
 ```bash
 sudo chown -R 1000:1000 storage bootstrap/cache
-chmod -R 775 storage bootstrap/cache
+sudo chmod -R 775 storage bootstrap/cache
 docker compose restart
 ```
 
