@@ -268,6 +268,57 @@ db:
 
 `docker/data/` is intentionally listed in `.dockerignore` so database files are never copied into Docker image builds. This keeps images small and avoids shipping or overwriting live database data during build.
 
+### Fixing permission errors for storage and cache directories
+
+When using volume mounts (`.:/var/www/html`), you may encounter this error:
+
+```
+file_put_contents(...): Permission denied
+```
+
+This happens because the `www` user inside the container (UID 1000) does not have permission to write to the `storage` and `bootstrap/cache` directories on your host machine.
+
+#### Solution: Set proper ownership from the host
+
+Run these commands from your host machine's terminal (not inside the container) in your project directory:
+
+```bash
+# Navigate to your project directory
+cd /home/tecworld/app
+
+# Set ownership to UID 1000 (matches the www user in the container)
+sudo chown -R 1000:1000 storage bootstrap/cache
+
+# Set appropriate permissions
+chmod -R 775 storage bootstrap/cache
+```
+
+**Why UID 1000?**
+
+The Dockerfile creates the `www` user with UID 1000:
+
+```dockerfile
+RUN groupadd -g 1000 www
+RUN useradd -u 1000 -ms /bin/bash -g www www
+```
+
+When volumes are mounted from the host, the container uses numeric UIDs to determine file access. By setting the host directories to UID 1000, the `www` user inside the container can write to them.
+
+#### Alternative: Run commands inside the container
+
+If you prefer to set permissions from inside the container:
+
+```bash
+docker compose exec app chown -R www:www storage bootstrap/cache
+docker compose exec app chmod -R 775 storage bootstrap/cache
+```
+
+**Important:** After running these commands, restart your containers to ensure changes take effect:
+
+```bash
+docker compose restart
+```
+
 ## 7) Vite config (TailwindCSS + hot reload)
 
 The `server` block below is required:
