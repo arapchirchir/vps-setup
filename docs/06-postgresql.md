@@ -97,6 +97,8 @@ ssl = on
 password_encryption = scram-sha-256
 ```
 
+If you need remote access, change `listen_addresses` to include external connections (for example `'*'`).
+
 Edit client authentication:
 
 ```bash
@@ -109,6 +111,12 @@ Ensure local connections use scram:
 local   all             all                                     scram-sha-256
 host    all             all             127.0.0.1/32            scram-sha-256
 host    all             all             ::1/128                 scram-sha-256
+```
+
+To allow a specific external IP, add this at the end of `/etc/postgresql/16/main/pg_hba.conf`:
+
+```text
+host    all             all             105.163.157.188/32            scram-sha-256
 ```
 
 Reload PostgreSQL:
