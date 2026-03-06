@@ -121,10 +121,10 @@ deploy ALL=(ALL:ALL) NOPASSWD: /bin/systemctl
 Or for even more granular control, specific commands only:
 
 ```text
-deploy NOPASSWD: /bin/systemctl nginx reload
-deploy NOPASSWD: /bin/systemctl nginx status
-deploy NOPASSWD: /bin/systemctl php8.3-fpm restart
-deploy NOPASSWD: /bin/systemctl postgresql restart
+deploy ALL=(ALL) NOPASSWD: /usr/bin/systemctl nginx reload
+deploy ALL=(ALL) NOPASSWD: /usr/bin/systemctl nginx status
+deploy ALL=(ALL) NOPASSWD: /usr/bin/systemctl php8.3-fpm restart
+deploy ALL=(ALL) NOPASSWD: /usr/bin/systemctl postgresql restart
 ```
 
 ### Set correct permissions
