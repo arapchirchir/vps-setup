@@ -230,6 +230,32 @@ server {
 }
 ```
 
+```
+server {
+    listen 80;
+    listen [::]:80;
+    server_name mail.techworld.co.ke www.mail.techworld.co.ke;
+
+    # This block allows Certbot to verify the domain and 
+    # passes all other traffic to your Mailcow container
+    location / {
+        proxy_pass http://127.0.0.1:8180;
+        proxy_set_header Host $http_host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Standard proxy settings for Mailcow/SOGo compatibility
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # Allow large email attachments
+        client_max_body_size 0;
+    }
+}
+```
+
 Reload:
 
 ```bash
