@@ -95,6 +95,17 @@ If you lose SSH access:
 ```bash
 sudo systemctl restart ssh
 ```
+## 6) PORT fixatio if changing port does not work
+```
+sudo systemctl edit ssh.socket
+```
+Add the port override
+
+```
+[Socket]
+ListenStream=
+ListenStream=2001
+```
 
 ---
 
