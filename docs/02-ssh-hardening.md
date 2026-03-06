@@ -52,6 +52,7 @@ MaxSessions 2
 LoginGraceTime 30
 ClientAliveInterval 300
 ClientAliveCountMax 2
+Port XXX
 ```
 
 Save and exit.
