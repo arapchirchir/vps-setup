@@ -18,6 +18,84 @@ Each domain/project runs as:
 
 If you add more dockerized sites, repeat these steps for each app with its own Linux user, home directory, and a unique host port (for example 8003, 8004). Keep the port consistent between `docker-compose.yml` and the host Nginx proxy.
 
+## Prerequisites (Docker install + project environment)
+
+Before Step 1, prepare the VPS host and each application's `.env`.
+
+### A) Install Docker Engine and Compose plugin (Ubuntu 22.04/24.04)
+
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" \
+| sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl enable --now docker
+```
+
+Verify:
+
+```bash
+docker --version
+docker compose version
+sudo systemctl status docker --no-pager -l
+```
+
+### B) Allow deploy users to run Docker commands
+
+This guide uses per-project Linux users (`tecworld`, `acquihub`) and runs deployment commands as those users. Give each deploy user Docker access:
+
+```bash
+sudo usermod -aG docker tecworld
+sudo usermod -aG docker acquihub
+```
+
+Then log out and log back in (or reboot) so new group membership is applied.
+
+Security note: Docker group access is effectively root-level access on the host. Only add trusted deploy users.
+
+### C) Create the application `.env` before first deploy
+
+In each project directory:
+
+```bash
+cd /home/tecworld/app
+cp .env.example .env
+```
+
+Set production values (minimum):
+
+```env
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://techworld.co.ke
+
+DB_CONNECTION=pgsql
+DB_HOST=db
+DB_PORT=5432
+DB_DATABASE=laravel
+DB_USERNAME=user
+DB_PASSWORD=secret
+
+REDIS_HOST=redis
+REDIS_PORT=6379
+```
+
+Harden permissions for secrets:
+
+```bash
+chmod 600 .env
+```
+
+`docker compose` also reads root-level `.env` for variable substitution in `docker-compose.yml`, so this file is required before first `docker compose up`.
+
 ## 1) Project structure (per application)
 
 Example for techworld:
