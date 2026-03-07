@@ -3,6 +3,11 @@
 This section secures your domains with **free SSL certificates** from Let’s Encrypt
 using Certbot’s Nginx integration.
 
+If your site is proxied through **Cloudflare** and you want to use
+**Cloudflare Origin CA** instead of a public Let's Encrypt certificate, use
+[04-nginx-multi-domain.md](04-nginx-multi-domain.md) and follow the Cloudflare
+TLS section there. Keep this document only for Certbot-managed certificates.
+
 ---
 
 ## Prerequisites (must be true)
@@ -18,7 +23,7 @@ Check DNS:
 ```bash
 dig +short example.com
 dig +short app.example.com
-````
+```
 
 They must return your server IP.
 

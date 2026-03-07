@@ -451,26 +451,54 @@ export default defineConfig({
 
 ## 8) Host Nginx reverse proxy
 
+Use [04-nginx-multi-domain.md](04-nginx-multi-domain.md) as the shared
+reference for certificate setup and Cloudflare TLS behavior. This section keeps
+only the Docker-specific upstream port.
+
 File:
 
 ```text
 /etc/nginx/sites-available/techworld.co.ke
 ```
 
+If the site is behind Cloudflare, use the Origin CA certificate paths from the
+Nginx guide:
+
 ```nginx
 server {
     listen 80;
+    listen [::]:80;
     server_name techworld.co.ke www.techworld.co.ke;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name techworld.co.ke www.techworld.co.ke;
+
+    ssl_certificate     /etc/nginx/ssl/techworld.co.ke.crt;
+    ssl_certificate_key /etc/nginx/ssl/techworld.co.ke.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
 
     location / {
         proxy_pass http://127.0.0.1:8001;
         proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Real-IP $http_cf_connecting_ip;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Port 443;
     }
 }
 ```
+
+If you use Let's Encrypt instead, keep the same server block and replace only
+the certificate paths with `/etc/letsencrypt/live/...`.
+
+For Laravel applications, apply the HTTPS scheme note from
+[04-nginx-multi-domain.md](04-nginx-multi-domain.md) if asset URLs or redirects
+still resolve to `http://`.
 
 Enable:
 

@@ -198,6 +198,11 @@ sudo ss -lntp | grep 4000
 
 ## 8) Nginx (Phoenix behind Cloudflare)
 
+Use [04-nginx-multi-domain.md](04-nginx-multi-domain.md) as the shared
+reference for Cloudflare Origin CA certificate creation and the base TLS layout.
+The Phoenix-specific details here are the upstream port and websocket upgrade
+headers.
+
 File:
 
 ```bash
@@ -217,8 +222,8 @@ server {
     listen [::]:443 ssl http2;
     server_name techworld.co.ke www.techworld.co.ke;
 
-    ssl_certificate     /etc/letsencrypt/live/techworld.co.ke/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/techworld.co.ke/privkey.pem;
+    ssl_certificate     /etc/nginx/ssl/techworld.co.ke.crt;
+    ssl_certificate_key /etc/nginx/ssl/techworld.co.ke.key;
 
     client_max_body_size 20m;
 
@@ -227,8 +232,9 @@ server {
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $http_cf_connecting_ip;
-        proxy_set_header X-Forwarded-For $http_cf_connecting_ip;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Port 443;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
     }

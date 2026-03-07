@@ -8,6 +8,10 @@ Example domains used:
 - `app.example.com`
 
 > Replace these with your real domain names.
+>
+> This is the shared reference for **host-level Nginx**, **TLS termination**, and
+> **Cloudflare origin certificates**. App-specific deployment guides should only
+> override upstream ports and runtime-specific headers.
 
 ---
 
@@ -17,7 +21,7 @@ Example domains used:
 sudo apt install -y nginx
 sudo systemctl enable nginx
 sudo systemctl start nginx
-````
+```
 
 Verify Nginx is running:
 
@@ -56,6 +60,10 @@ sudo chmod -R 775 /home/exampleuser/exampleapp/storage /home/exampleuser/example
 ---
 
 ## 3) Create Nginx server blocks
+
+The examples in this section use Let's Encrypt certificate paths. If you use
+Cloudflare Origin CA instead, keep the same server blocks and swap only the
+certificate paths as shown in section 8.
 
 ### 3.1 example.com
 
@@ -216,86 +224,136 @@ See [07-letsencrypt.md](07-letsencrypt.md) for full Let's Encrypt setup with Cer
 
 ## 8) SSL Certificates: Option B - Cloudflare Origin CA
 
-This option allows you to use **Cloudflare-issued certificates** instead of Let's Encrypt.
+Use this when the domain is proxied through **Cloudflare** and you want
+Cloudflare to present the public certificate while Nginx uses an
+**Origin CA certificate** for the Cloudflare-to-origin connection.
 
-### Prerequisites
+This is the canonical Cloudflare TLS section for this repository. Reuse it for
+Laravel, Docker, and Phoenix deployments instead of repeating the same TLS steps
+in each deployment document.
+
+### 8.1) Prerequisites
 
 - Your domain is proxied through Cloudflare
-- You have access to Cloudflare dashboard
-- Cloudflare SSL/TLS is set to **Full** or **Full (strict)**
+- You have access to the Cloudflare dashboard
+- Cloudflare **SSL/TLS** mode is set to **Full (strict)**
 
-### 8.1) Generate Cloudflare Origin CA Certificate
+### 8.2) Generate the Origin CA certificate
 
 1. Log into **Cloudflare Dashboard**
-2. Navigate to **SSL/TLS** → **Origin Server**
+2. Open **SSL/TLS** → **Origin Server**
 3. Click **Create Certificate**
-4. Select:
-   - Certificate format: **PEM** (for Nginx)
-   - Hostname: `example.com` and `*.example.com` (wildcard for all subdomains)
-5. Copy the **certificate** and **private key**
+4. Keep the default settings unless you need custom hostnames
+5. Include the hostnames you will serve, for example `example.com` and `*.example.com`
+6. Copy the generated **Origin Certificate** and **Private Key**
 
-### 8.2) Save certificates on server
+### 8.3) Save the certificate on the VPS
 
-Create the directory using the same structure as Let's Encrypt:
-
-```bash
-sudo mkdir -p /etc/letsencrypt/live/example.com/
-```
-
-Create the certificate (fullchain) file:
+Create a dedicated directory for origin certificates:
 
 ```bash
-sudo nano /etc/letsencrypt/live/example.com/fullchain.pem
+sudo mkdir -p /etc/nginx/ssl
 ```
 
-Paste the **certificate** content, save and exit.
-
-Create the private key file:
+Save the certificate:
 
 ```bash
-sudo nano /etc/letsencrypt/live/example.com/privkey.pem
+sudo nano /etc/nginx/ssl/example.com.crt
 ```
 
-Paste the **private key** content, save and exit.
-
-Set correct permissions:
+Save the private key:
 
 ```bash
-sudo chmod 600 /etc/letsencrypt/live/example.com/privkey.pem
-sudo chmod 644 /etc/letsencrypt/live/example.com/fullchain.pem
+sudo nano /etc/nginx/ssl/example.com.key
 ```
 
-### 8.3) Update Nginx server blocks for Cloudflare certificates
-
-Edit your Nginx config:
+Set the correct permissions:
 
 ```bash
-sudo nano /etc/nginx/sites-available/example.com
+sudo chmod 644 /etc/nginx/ssl/example.com.crt
+sudo chmod 600 /etc/nginx/ssl/example.com.key
 ```
 
-Update the SSL directives to use Cloudflare certificates:
+### 8.4) Update Nginx to use the Cloudflare certificate
+
+For local PHP-FPM sites, only the certificate lines change:
 
 ```nginx
 listen 443 ssl http2;
 listen [::]:443 ssl http2;
-ssl_certificate     /etc/letsencrypt/live/example.com/fullchain.pem;
-ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+ssl_certificate     /etc/nginx/ssl/example.com.crt;
+ssl_certificate_key /etc/nginx/ssl/example.com.key;
 ```
 
-### 8.4) Test and start Nginx
+For applications that Nginx proxies to a local upstream port, use this shared pattern:
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name example.com www.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name example.com www.example.com;
+
+    ssl_certificate     /etc/nginx/ssl/example.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/example.com.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass http://127.0.0.1:8001;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $http_cf_connecting_ip;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Port 443;
+    }
+}
+```
+
+Notes:
+
+- Replace `127.0.0.1:8001` with the correct local port for the application
+- Keep any app-specific headers such as `Upgrade` and `Connection` in the app deployment document
+- If you are not using Cloudflare, use your normal upstream headers instead of `CF-Connecting-IP`
+
+### 8.5) Laravel HTTPS awareness
+
+If Laravel still generates `http://` asset or redirect URLs behind Cloudflare,
+force the scheme outside local development:
+
+```php
+use Illuminate\Support\Facades\URL;
+
+public function boot(): void
+{
+    if (config('app.env') !== 'local') {
+        URL::forceScheme('https');
+    }
+}
+```
+
+Apply this once in `app/Providers/AppServiceProvider.php`.
+
+### 8.6) Test and reload Nginx
 
 ```bash
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 8.5) Certificate renewal
+### 8.7) Certificate renewal
 
-Cloudflare Origin CA certificates are valid for **15 years**. Renewal is manual:
+Cloudflare Origin CA certificates are long-lived, but renewal is still manual:
 
-- Before expiry, return to Cloudflare dashboard
-- Create a new certificate
-- Update `/etc/cloudflare/certs/` files
+- Before expiry, return to the Cloudflare dashboard
+- Create a new Origin CA certificate
+- Replace `/etc/nginx/ssl/example.com.crt` and `/etc/nginx/ssl/example.com.key`
 - Reload Nginx
 
 ---
