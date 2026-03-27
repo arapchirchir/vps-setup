@@ -32,3 +32,4 @@ All steps are **tested and proven in real deployments**.
 - [docs/10-mailcow.md](docs/10-mailcow.md)
 - [docs/11-phoenix-deployment.md](docs/11-phoenix-deployment.md)
 - [docs/12-docker-deployment-with-systemd.md](docs/12-docker-deployment-with-systemd.md)
+- [docs/13-docker-social-sail-cleanup.md](docs/13-docker-social-sail-cleanup.md)
