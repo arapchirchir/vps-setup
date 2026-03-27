@@ -58,12 +58,22 @@ docker volume ls --format '{{.Name}}' | rg '(social|sail)'
 Important: steps 7 and 8 permanently delete Docker volumes (database/cache/session data).
 
 
-# 10) Create backup and restore scripts (recommended)
+# 10) Go to your Laravel project root
+```
+cd /path/to/your/laravel/project
+```
+
+# 11) Create scripts folder
 ```
 mkdir -p scripts
 ```
 
-# 11) Paste full backup script (copy and paste exactly)
+# 12) Create script files explicitly
+```
+touch scripts/backup-kdc.sh scripts/restore-kdc.sh
+```
+
+# 13) Paste full backup script into scripts/backup-kdc.sh (copy and paste exactly)
 ```
 cat > scripts/backup-kdc.sh <<'SH'
 #!/usr/bin/env bash
@@ -95,7 +105,7 @@ echo "Backup complete: $BACKUP_DIR"
 SH
 ```
 
-# 12) Paste full restore script (copy and paste exactly)
+# 14) Paste full restore script into scripts/restore-kdc.sh (copy and paste exactly)
 ```
 cat > scripts/restore-kdc.sh <<'SH'
 #!/usr/bin/env bash
@@ -144,17 +154,17 @@ echo "Restore complete from: $BACKUP_DIR"
 SH
 ```
 
-# 13) Make scripts executable
+# 15) Make scripts executable
 ```
 chmod +x scripts/backup-kdc.sh scripts/restore-kdc.sh
 ```
 
-# 14) Run backup
+# 16) Run backup
 ```
 ./scripts/backup-kdc.sh
 ```
 
-# 15) Run restore
+# 17) Run restore
 ```
 ./scripts/restore-kdc.sh <backup_timestamp>
 ```
