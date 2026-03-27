@@ -58,21 +58,25 @@ docker volume ls --format '{{.Name}}' | rg '(social|sail)'
 Important: steps 7 and 8 permanently delete Docker volumes (database/cache/session data).
 
 
-# 10) Load live credentials from .envkdc
+# 10) Create backup and restore scripts (recommended)
 ```
+mkdir -p scripts
+```
+
+# 11) Paste full backup script (copy and paste exactly)
+```
+cat > scripts/backup-kdc.sh <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+
 set -a
 source .envkdc
 set +a
-```
 
-# 11) If running on host (not inside Docker network), force forwarded DB endpoint
-```
+# If running from host (outside docker network), uncomment these two lines:
 # DB_HOST=127.0.0.1
 # DB_PORT="${FORWARD_DB_PORT:-5433}"
-```
 
-# 12) Backup PostgreSQL + storage
-```
 TS=$(date +%F-%H%M%S)
 BACKUP_DIR="$HOME/backups/kdc/$TS"
 mkdir -p "$BACKUP_DIR"
@@ -88,18 +92,41 @@ cp .envkdc "$BACKUP_DIR/.envkdc.backup"
 sha256sum "$BACKUP_DIR/${DB_DATABASE}.dump" "$BACKUP_DIR/storage.tar.gz" > "$BACKUP_DIR/SHA256SUMS"
 
 echo "Backup complete: $BACKUP_DIR"
+SH
 ```
 
-# 13) Restore PostgreSQL + storage later
+# 12) Paste full restore script (copy and paste exactly)
 ```
+cat > scripts/restore-kdc.sh <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "${1:-}" = "" ]; then
+  echo "Usage: ./scripts/restore-kdc.sh <backup_timestamp>"
+  echo "Example: ./scripts/restore-kdc.sh 2026-03-27-221500"
+  exit 1
+fi
+
+TS="$1"
+BACKUP_DIR="$HOME/backups/kdc/$TS"
+
 set -a
 source .envkdc
 set +a
 
+# If running from host (outside docker network), uncomment these two lines:
 # DB_HOST=127.0.0.1
 # DB_PORT="${FORWARD_DB_PORT:-5433}"
 
-BACKUP_DIR="$HOME/backups/kdc/<TS>"
+if [ ! -f "$BACKUP_DIR/${DB_DATABASE}.dump" ]; then
+  echo "Missing dump file: $BACKUP_DIR/${DB_DATABASE}.dump"
+  exit 1
+fi
+
+if [ ! -f "$BACKUP_DIR/storage.tar.gz" ]; then
+  echo "Missing storage archive: $BACKUP_DIR/storage.tar.gz"
+  exit 1
+fi
 
 PGPASSWORD="$DB_PASSWORD" pg_restore \
   -h "$DB_HOST" -p "${DB_PORT:-5432}" \
@@ -114,4 +141,20 @@ php artisan storage:link
 php artisan optimize:clear
 
 echo "Restore complete from: $BACKUP_DIR"
+SH
+```
+
+# 13) Make scripts executable
+```
+chmod +x scripts/backup-kdc.sh scripts/restore-kdc.sh
+```
+
+# 14) Run backup
+```
+./scripts/backup-kdc.sh
+```
+
+# 15) Run restore
+```
+./scripts/restore-kdc.sh <backup_timestamp>
 ```
