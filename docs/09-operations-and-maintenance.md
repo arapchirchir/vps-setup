@@ -13,7 +13,7 @@ Test configuration and reload:
 
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
-````
+```
 
 Restart (only if needed):
 

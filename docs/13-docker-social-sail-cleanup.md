@@ -16,7 +16,7 @@ docker ps -aq --filter label=com.docker.compose.project=social
 
 # 3) List only social/sail images
 ```
-docker image ls --format '{{.Repository}}:{{.Tag}}\t{{.ID}}' | rg '^(social-|sail-8\.5/app:)'
+docker image ls --format '{{.Repository}}:{{.Tag}}\t{{.ID}}' | grep -E '^(social-|sail-8\.5/app:)'
 ```
 
 # 4) Remove social project containers (replace IDs with your output from step 2)
@@ -31,8 +31,8 @@ docker image rm social-nginx:latest social-app:latest sail-8.5/app:latest
 
 # 6) Check remaining social/sail networks and volumes
 ```
-docker network ls --format '{{.Name}}' | rg '(social|sail)'
-docker volume ls --format '{{.Name}}' | rg '(social|sail)'
+docker network ls --format '{{.Name}}' | grep -E '(social|sail)'
+docker volume ls --format '{{.Name}}' | grep -E '(social|sail)'
 ```
 
 # 7) Remove remaining sail-specific network/volumes
@@ -49,10 +49,10 @@ docker volume rm social_laravel-cache social_laravel-storage social_redis-data
 
 # 9) Final verification (should return no lines)
 ```
-docker ps -a --format '{{.Image}}\t{{.Names}}' | rg '(social|sail)'
-docker image ls --format '{{.Repository}}:{{.Tag}}' | rg '(social|sail)'
-docker network ls --format '{{.Name}}' | rg '(social|sail)'
-docker volume ls --format '{{.Name}}' | rg '(social|sail)'
+docker ps -a --format '{{.Image}}\t{{.Names}}' | grep -E '(social|sail)'
+docker image ls --format '{{.Repository}}:{{.Tag}}' | grep -E '(social|sail)'
+docker network ls --format '{{.Name}}' | grep -E '(social|sail)'
+docker volume ls --format '{{.Name}}' | grep -E '(social|sail)'
 ```
 
 Important: steps 7 and 8 permanently delete Docker volumes (database/cache/session data).
@@ -138,14 +138,27 @@ if [ ! -f "$BACKUP_DIR/storage.tar.gz" ]; then
   exit 1
 fi
 
+# Verify checksums before making any destructive changes
+if [ -f "$BACKUP_DIR/SHA256SUMS" ]; then
+  echo "Verifying backup checksums..."
+  (cd "$BACKUP_DIR" && sha256sum -c SHA256SUMS)
+  echo "Checksums OK."
+fi
+
+# Restore database
 PGPASSWORD="$DB_PASSWORD" pg_restore \
   -h "$DB_HOST" -p "${DB_PORT:-5432}" \
   -U "$DB_USERNAME" -d "$DB_DATABASE" \
   --clean --if-exists --no-owner --no-privileges \
   "$BACKUP_DIR/${DB_DATABASE}.dump"
 
+# Extract storage to a temporary directory first, then swap atomically
+STORAGE_TMP="storage.restore.$$"
+tar -xzf "$BACKUP_DIR/storage.tar.gz" --one-top-level="$STORAGE_TMP"
+
+# Only remove the existing storage directory after the archive is confirmed good
 rm -rf storage
-tar -xzf "$BACKUP_DIR/storage.tar.gz"
+mv "$STORAGE_TMP/storage" storage
 
 php artisan storage:link
 php artisan optimize:clear

@@ -19,7 +19,7 @@ This baseline is suitable for **production workloads**.
 ### Network
 - ✅ UFW firewall enabled
 - ✅ Default deny for inbound traffic
-- ✅ Only ports 22 (SSH), 80 (HTTP), 443 (HTTPS) exposed
+- ✅ Only your custom SSH port, 80 (HTTP), and 443 (HTTPS) exposed
 
 ### Web & Transport
 - ✅ Nginx reverse proxy
@@ -41,7 +41,7 @@ This baseline is suitable for **production workloads**.
 ```bash
 sudo apt install -y unattended-upgrades
 sudo dpkg-reconfigure --priority=low unattended-upgrades
-````
+```
 
 Ensures critical security patches are applied automatically.
 

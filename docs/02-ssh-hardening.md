@@ -17,7 +17,7 @@ Run this on your **local machine**:
 
 ```bash
 ssh-copy-id deploy@SERVER_IP
-````
+```
 
 Test login:
 
@@ -46,7 +46,7 @@ PubkeyAuthentication yes
 X11Forwarding no
 AllowUsers deploy
 PermitEmptyPasswords no
-ChallengeResponseAuthentication no
+KbdInteractiveAuthentication no
 MaxAuthTries 3
 MaxSessions 2
 LoginGraceTime 30
@@ -96,7 +96,7 @@ If you lose SSH access:
 ```bash
 sudo systemctl restart ssh
 ```
-## 6) PORT fixatio if changing port does not work
+## 6) PORT fixation if changing port does not work
 ```
 sudo systemctl edit ssh.socket
 ```
