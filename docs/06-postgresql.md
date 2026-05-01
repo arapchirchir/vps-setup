@@ -10,7 +10,7 @@ errors (especially with Laravel migrations).
 
 ```bash
 sudo apt install -y postgresql postgresql-contrib
-````
+```
 
 Verify service status:
 
@@ -40,9 +40,9 @@ ALTER DATABASE exampledb OWNER TO exampleuser;
 GRANT ALL PRIVILEGES ON DATABASE exampledb TO exampleuser;
 \q
 ```
----
-# Changing password
-```
+### Changing a password
+
+```sql
 \password db_user
 ```
 
@@ -88,10 +88,18 @@ DB_PASSWORD=StrongPasswordHere
 
 ## 5) PostgreSQL hardening (recommended)
 
+First, check your installed PostgreSQL version:
+
+```bash
+ls /etc/postgresql/
+```
+
+Use the version number shown (e.g., `14`, `15`, or `16`) in the paths below.
+
 Edit the main config:
 
 ```bash
-sudo nano /etc/postgresql/16/main/postgresql.conf
+sudo nano /etc/postgresql/VERSION/main/postgresql.conf
 ```
 
 Set or confirm:
@@ -107,7 +115,7 @@ If you need remote access, change `listen_addresses` to include external connect
 Edit client authentication:
 
 ```bash
-sudo nano /etc/postgresql/16/main/pg_hba.conf
+sudo nano /etc/postgresql/VERSION/main/pg_hba.conf
 ```
 
 Ensure local connections use scram:
@@ -118,14 +126,15 @@ host    all             all             127.0.0.1/32            scram-sha-256
 host    all             all             ::1/128                 scram-sha-256
 ```
 
-To allow a specific external IP, add this at the end of `/etc/postgresql/16/main/pg_hba.conf`:
+To allow a specific external IP, add this at the end of `/etc/postgresql/VERSION/main/pg_hba.conf`:
 
 ```text
-host    all             all             105.163.157.188/32            scram-sha-256
+host    all             all             YOUR_IP_ADDRESS/32            scram-sha-256
 ```
 
-# Allow an ip to connect to the database from outside the server
-```
+## Allow an external IP to connect to the database
+
+```bash
 sudo ufw allow from YOUR_IP_ADDRESS to any port 5432 proto tcp
 ```
 
@@ -146,7 +155,7 @@ Re-run **Step 3**.
 ### Test database login
 
 ```bash
-psql "host=127.0.0.1 port=5432 dbname=exampledb user=exampleuser password=StrongPasswordHere"
+psql "host=127.0.0.1 port=5432 dbname=exampledb user=exampleuser"
 ```
 
 ---

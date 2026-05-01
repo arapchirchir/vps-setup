@@ -153,17 +153,19 @@ RUN docker-php-ext-install pdo_mysql pdo_pgsql mbstring zip exif pcntl
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg
 RUN docker-php-ext-install gd
 
-# Install Composer
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+# Install Composer (verified checksum method)
+RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');" \
+    && EXPECTED_SIG="$(php -r "copy('https://composer.github.io/installer.sig', 'php://stdout');")" \
+    && ACTUAL_SIG="$(php -r "echo hash_file('sha384', 'composer-setup.php');")" \
+    && if [ "$EXPECTED_SIG" != "$ACTUAL_SIG" ]; then echo 'ERROR: Invalid Composer installer checksum' && rm composer-setup.php && exit 1; fi \
+    && php composer-setup.php --install-dir=/usr/local/bin --filename=composer \
+    && rm composer-setup.php
 
 # Add user for laravel application
 RUN groupadd -g 1000 www
 RUN useradd -u 1000 -ms /bin/bash -g www www
 
-# Copy existing application directory contents
-COPY . .
-
-# Copy existing application directory permissions
+# Copy application files with correct ownership in a single layer
 COPY --chown=www:www . /var/www/html
 
 # Copy entrypoint script
@@ -216,12 +218,12 @@ services:
     volumes:
       - .:/var/www/html
     ports:
-      - "5173:5173"
+      - "5173:5173"   # Vite HMR — remove in production
     networks:
       - tail-tap
 
   nginx:
-    image: nginx:alpine
+    image: nginx:1.27-alpine
     container_name: tail-tap-nginx
     restart: unless-stopped
     ports:
@@ -233,7 +235,7 @@ services:
       - tail-tap
 
   db:
-    image: postgres:16
+    image: postgres:16-alpine
     container_name: tail-tap-db
     restart: unless-stopped
     environment:
@@ -242,17 +244,19 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
     volumes:
       - ./docker/data/db:/var/lib/postgresql/data
-    ports:
-      - "54321:5432"
+    # No host port mapping — the database is only reachable by containers
+    # on the tail-tap network. To connect from the host for debugging, use:
+    #   docker compose exec db psql -U $DB_USERNAME $DB_DATABASE
     networks:
       - tail-tap
 
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     container_name: tail-tap-redis
     restart: unless-stopped
-    ports:
-      - "63791:6379"
+    # No host port mapping — Redis is only reachable by containers on the
+    # tail-tap network. To connect from the host for debugging, use:
+    #   docker compose exec redis redis-cli
     networks:
       - tail-tap
 
@@ -260,6 +264,13 @@ networks:
   tail-tap:
     driver: bridge
 ```
+
+> **Production note:** The `db` and `redis` services intentionally have **no
+> host port mappings**. Exposing database ports on the host (`54321:5432`,
+> `63791:6379`) allows any process running on the VPS to connect to them
+> without authentication restrictions. Keep these services internal to the
+> Docker network. If you need to connect from the host for debugging, use
+> `docker compose exec` instead.
 
 ### Laravel `.env` for Docker networking
 
@@ -279,14 +290,10 @@ docker compose exec -T app php artisan migrate --force
 docker compose exec -T app php artisan optimize
 ```
 
-If you run `php artisan ...` from the VPS host directly, use mapped host ports instead:
-
-```env
-DB_HOST=127.0.0.1
-DB_PORT=54321
-REDIS_HOST=127.0.0.1
-REDIS_PORT=63791
-```
+> Because the database and Redis containers have no host port mappings, you
+> **must** run `php artisan` commands via `docker compose exec`. If you need
+> to run Artisan from the VPS host directly (e.g. in a cron job), either add
+> temporary host port mappings during maintenance or run the command via exec.
 
 ## 5) docker/nginx/default.conf
 
@@ -473,8 +480,9 @@ server {
 }
 
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
     server_name techworld.co.ke www.techworld.co.ke;
 
     ssl_certificate     /etc/nginx/ssl/techworld.co.ke.crt;
@@ -580,6 +588,8 @@ Repeat for acquihub.
 
 ```yaml
 - name: Deploy to VPS
+  # Pin to a full commit SHA in production to prevent supply-chain attacks.
+  # Check the latest SHA at: https://github.com/appleboy/ssh-action/releases
   uses: appleboy/ssh-action@v1.0.3
   with:
     host: ${{ secrets.SERVER_HOST }}
@@ -738,8 +748,8 @@ Common causes:
 - Check if the `db` container is running: `docker compose ps`
 - Verify database credentials in `.env` match `docker-compose.yml`
 - If running Laravel inside Docker, ensure `DB_HOST=db` and `DB_PORT=5432`
-- If running Laravel from host, use `DB_HOST=127.0.0.1` and `DB_PORT=54321`
-- If you see `could not translate host name "db"`, run Artisan via `docker compose exec -T app ...` or switch host DB values as above
+- To run Artisan from the VPS host, use `docker compose exec -T app php artisan ...`
+- If you see `could not translate host name "db"`, run Artisan via `docker compose exec -T app ...`
 
 ### Vite not accessible or hot reload not working
 

@@ -72,8 +72,24 @@ sudo nano /etc/nginx/sites-available/example.com
 ```
 
 ```nginx
+# Redirect www to non-www (separate server block — avoids the "if is evil" anti-pattern)
 server {
-    server_name example.com www.example.com;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name www.example.com;
+
+    ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+
+    return 301 https://example.com$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name example.com;
     client_max_body_size 500M;
 
     root /home/exampleuser/exampleapp/public;
@@ -81,6 +97,19 @@ server {
 
     access_log /var/log/nginx/example.com.access.log;
     error_log  /var/log/nginx/example.com.error.log;
+
+    ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
 
     location / {
         try_files $uri $uri/ /index.php?$query_string;
@@ -94,21 +123,6 @@ server {
     location ~ /\. {
         deny all;
     }
-
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    ssl_certificate /etc/letsencrypt/live/example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/example.com/privkey.pem;
-
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
-
-    if ($host = www.example.com) {
-        return 301 https://example.com$request_uri;
-    }
 }
 
 server {
@@ -118,6 +132,11 @@ server {
     return 301 https://example.com$request_uri;
 }
 ```
+
+> **Nginx version note:** The `http2 on;` directive requires Nginx ≥ 1.25.1.
+> On Ubuntu 22.04 / 24.04 with the default apt Nginx (1.18 / 1.24), replace
+> `listen 443 ssl; http2 on;` with the older form `listen 443 ssl http2;` if
+> you are not using the official Nginx stable/mainline PPA.
 
 Enable site:
 
@@ -135,6 +154,9 @@ sudo nano /etc/nginx/sites-available/app.example.com
 
 ```nginx
 server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
     server_name app.example.com;
     client_max_body_size 500M;
 
@@ -143,6 +165,19 @@ server {
 
     access_log /var/log/nginx/app.example.com.access.log;
     error_log  /var/log/nginx/app.example.com.error.log;
+
+    ssl_certificate /etc/letsencrypt/live/app.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/app.example.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
 
     location / {
         try_files $uri $uri/ /index.php?$query_string;
@@ -156,17 +191,6 @@ server {
     location ~ /\. {
         deny all;
     }
-
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    ssl_certificate /etc/letsencrypt/live/app.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/app.example.com/privkey.pem;
-
-    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
 }
 
 server {
@@ -296,8 +320,9 @@ server {
 }
 
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
     server_name example.com www.example.com;
 
     ssl_certificate     /etc/nginx/ssl/example.com.crt;

@@ -195,16 +195,29 @@ Edit:
 nano /etc/nginx/sites-available/mail.example.com
 ```
 
-Use:
+Replace the **entire file** with the following complete vhost (both HTTP and HTTPS blocks).
+Certbot has already placed the certificate files; we now configure Nginx to
+proxy both plain HTTP and HTTPS traffic to Mailcow.
 
-```
+```nginx
 server {
     listen 80;
     listen [::]:80;
     server_name mail.example.com autodiscover.example.com autoconfig.example.com;
+    return 301 https://$host$request_uri;
+}
 
-    # This block allows Certbot to verify the domain and 
-    # passes all other traffic to your Mailcow container
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name mail.example.com autodiscover.example.com autoconfig.example.com;
+
+    ssl_certificate     /etc/letsencrypt/live/mail.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mail.example.com/privkey.pem;
+    include             /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam         /etc/letsencrypt/ssl-dhparams.pem;
+
     location / {
         proxy_pass http://127.0.0.1:8180;
         proxy_set_header Host $http_host;
@@ -212,11 +225,11 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
 
-        # Standard proxy settings for Mailcow/SOGo compatibility
+        # Required for Mailcow / SOGo WebSocket and long-polling
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
-        
+
         # Allow large email attachments
         client_max_body_size 0;
     }

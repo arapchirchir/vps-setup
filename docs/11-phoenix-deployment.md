@@ -74,11 +74,13 @@ sudo -u postgres psql
 ```
 
 ```sql
-CREATE ROLE tecworld WITH LOGIN PASSWORD '@Techworld2026.';
-CREATE DATABASE tecworld_prod OWNER tecworld;
-GRANT ALL PRIVILEGES ON DATABASE tecworld_prod TO tecworld;
+CREATE ROLE appuser WITH LOGIN PASSWORD 'StrongPasswordHere';
+CREATE DATABASE appname_prod OWNER appuser;
+GRANT ALL PRIVILEGES ON DATABASE appname_prod TO appuser;
 \q
 ```
+
+> Replace `appuser`, `StrongPasswordHere`, and `appname_prod` with your actual values.
 
 ---
 
@@ -87,22 +89,24 @@ GRANT ALL PRIVILEGES ON DATABASE tecworld_prod TO tecworld;
 Location:
 
 ```bash
-/home/tecworld/tecworld/.env
+/home/appuser/appname/.env
 ```
 
 ```env
 # Phoenix
 MIX_ENV=prod
 PHX_SERVER=true
-PHX_HOST=techworld.co.ke
+PHX_HOST=yourdomain.com
 PORT=4000
 
 # Secrets
 SECRET_KEY_BASE=GENERATE_WITH_mix_phx.gen.secret
 
-# Database (URL‑encoded password)
-DATABASE_URL=postgres://tecworld:%40Techworld2026.@localhost:5432/tecworld_prod
+# Database (URL-encoded password)
+DATABASE_URL=postgresql://appuser:StrongPasswordHere@localhost:5432/appname_prod
 ```
+
+> Replace `appuser`, `appname`, `yourdomain.com`, and `StrongPasswordHere` with your actual values.
 
 Generate secret:
 
@@ -118,7 +122,7 @@ Ensure **server is enabled via env**:
 
 ```elixir
 if System.get_env("PHX_SERVER") do
-  config :tecworld, TecworldWeb.Endpoint, server: true
+  config :myapp, MyAppWeb.Endpoint, server: true
 end
 ```
 
@@ -128,17 +132,19 @@ Database config:
 database_url = System.get_env("DATABASE_URL") ||
   raise "DATABASE_URL is missing"
 
-config :tecworld, Tecworld.Repo,
+config :myapp, MyApp.Repo,
   url: database_url,
   pool_size: String.to_integer(System.get_env("POOL_SIZE") || "10")
 ```
+
+> Replace `:myapp`, `MyAppWeb.Endpoint`, and `MyApp.Repo` with your actual OTP app name and module names.
 
 ---
 
 ## 6) Build & test release manually (first time)
 
 ```bash
-cd /home/tecworld/tecworld
+cd /home/appuser/appname
 set -a
 . .env
 set +a
@@ -157,22 +163,22 @@ MIX_ENV=prod mix release --overwrite
 Create service:
 
 ```bash
-sudo nano /etc/systemd/system/tecworld.service
+sudo nano /etc/systemd/system/appname.service
 ```
 
 ```ini
 [Unit]
-Description=Tecworld Phoenix App
+Description=MyApp Phoenix App
 After=network.target
 
 [Service]
 Type=simple
-User=tecworld
-Group=tecworld
-WorkingDirectory=/home/tecworld/tecworld
-EnvironmentFile=/home/tecworld/tecworld/.env
-ExecStart=/home/tecworld/tecworld/_build/prod/rel/tecworld/bin/tecworld foreground
-ExecStop=/home/tecworld/tecworld/_build/prod/rel/tecworld/bin/tecworld stop
+User=appuser
+Group=appuser
+WorkingDirectory=/home/appuser/appname
+EnvironmentFile=/home/appuser/appname/.env
+ExecStart=/home/appuser/appname/_build/prod/rel/appname/bin/appname foreground
+ExecStop=/home/appuser/appname/_build/prod/rel/appname/bin/appname stop
 Restart=always
 RestartSec=5
 
@@ -180,12 +186,14 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
+> Replace `appuser`, `appname`, and `MyApp` with your actual values.
+
 Enable & start:
 
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable tecworld
-sudo systemctl start tecworld
+sudo systemctl enable appname
+sudo systemctl start appname
 ```
 
 Verify:
@@ -206,24 +214,27 @@ headers.
 File:
 
 ```bash
-sudo nano /etc/nginx/sites-available/techworld.co.ke
+sudo nano /etc/nginx/sites-available/yourdomain.com
 ```
 
 ```nginx
 server {
     listen 80;
     listen [::]:80;
-    server_name techworld.co.ke www.techworld.co.ke;
+    server_name yourdomain.com www.yourdomain.com;
     return 301 https://$host$request_uri;
 }
 
 server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name techworld.co.ke www.techworld.co.ke;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name yourdomain.com www.yourdomain.com;
 
-    ssl_certificate     /etc/nginx/ssl/techworld.co.ke.crt;
-    ssl_certificate_key /etc/nginx/ssl/techworld.co.ke.key;
+    ssl_certificate     /etc/nginx/ssl/yourdomain.com.crt;
+    ssl_certificate_key /etc/nginx/ssl/yourdomain.com.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
 
     client_max_body_size 20m;
 
@@ -235,16 +246,20 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Port 443;
+        # Phoenix LiveView / WebSocket support
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
     }
 }
 ```
 
+> Replace `yourdomain.com` and the certificate paths with your actual domain and certificate locations.
+> See [04-nginx-multi-domain.md](04-nginx-multi-domain.md) for the full Nginx version note on `http2 on;`.
+
 Enable:
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/techworld.co.ke /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/yourdomain.com /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -260,6 +275,8 @@ Key lessons:
 
 ```yaml
 - name: Deploy via SSH
+  # Pin to a full commit SHA in production to prevent supply-chain attacks.
+  # Check the latest SHA at: https://github.com/appleboy/ssh-action/releases
   uses: appleboy/ssh-action@v1.0.3
   with:
     host: ${{ secrets.SSH_HOST }}
@@ -267,14 +284,14 @@ Key lessons:
     key: ${{ secrets.SSH_PRIVATE_KEY }}
     port: ${{ secrets.SSH_PORT }}
     script: |
-      cd /home/tecworld/tecworld
+      cd /home/appuser/appname
       set -euo pipefail
 
       export ASDF_DIR="$HOME/.asdf"
       . "$ASDF_DIR/asdf.sh"
       hash -r
 
-      git pull origin master
+      git pull origin main
 
       set -a
       . .env
@@ -286,7 +303,7 @@ Key lessons:
       MIX_ENV=prod mix ecto.migrate
       MIX_ENV=prod mix release --overwrite
 
-      sudo systemctl restart tecworld
+      sudo systemctl restart appname
 ```
 
 ---
@@ -294,10 +311,10 @@ Key lessons:
 ## 10) Verification checklist
 
 ```bash
-sudo systemctl status tecworld
+sudo systemctl status appname
 sudo ss -lntp | grep 4000
 curl -I http://127.0.0.1:4000
-curl -I https://techworld.co.ke
+curl -I https://yourdomain.com
 ```
 
 ---

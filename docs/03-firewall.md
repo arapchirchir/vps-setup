@@ -13,7 +13,7 @@ This section configures a basic but secure firewall using UFW (Uncomplicated Fir
 
 ```bash
 sudo apt install -y ufw
-````
+```
 
 ---
 
@@ -33,6 +33,19 @@ Allow SSH (must be done before enabling UFW):
 ```bash
 sudo ufw allow OpenSSH
 ```
+
+> ⚠️ **If you changed the SSH port** (as recommended in [02-ssh-hardening.md](02-ssh-hardening.md)),
+> allow your custom port **instead of** (or in addition to) the OpenSSH rule:
+>
+> ```bash
+> sudo ufw allow PORT/tcp   # replace PORT with your actual SSH port, e.g. 2001
+> ```
+>
+> Once you have confirmed SSH access works on your custom port, remove the default rule:
+>
+> ```bash
+> sudo ufw delete allow OpenSSH
+> ```
 
 Allow web traffic:
 
