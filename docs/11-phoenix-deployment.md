@@ -103,7 +103,7 @@ PORT=4000
 SECRET_KEY_BASE=GENERATE_WITH_mix_phx.gen.secret
 
 # Database (URL-encoded password)
-DATABASE_URL=ecto://appuser:StrongPasswordHere@localhost:5432/appname_prod
+DATABASE_URL=postgresql://appuser:StrongPasswordHere@localhost:5432/appname_prod
 ```
 
 > Replace `appuser`, `appname`, `yourdomain.com`, and `StrongPasswordHere` with your actual values.
