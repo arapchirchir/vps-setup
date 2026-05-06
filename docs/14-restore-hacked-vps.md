@@ -38,6 +38,52 @@ sudo ufw --force enable
   every action taken with timestamps.
 - Check whether any data-breach notification obligations apply (GDPR, local law).
 
+## 1c) If you have **no SSH access at all** (lockout recovery)
+
+If the attacker changed SSH keys, firewall rules, or user passwords and you are fully locked out, use your cloud provider controls as your recovery path.
+
+### Recovery path A (preferred): Provider rescue mode + filesystem repair
+
+Most providers offer a *Rescue/Recovery* boot mode (temporary OS).
+
+1. Boot the VPS into rescue mode from the provider dashboard.
+2. Mount the original root filesystem.
+3. Repair access controls offline:
+   - Add your emergency SSH public key to `/home/deploy/.ssh/authorized_keys`.
+   - Remove unknown keys from every user’s `authorized_keys`.
+   - Verify `/etc/ssh/sshd_config` still allows key auth.
+   - Reset firewall rules (UFW/iptables/nftables) to permit your management IP and SSH.
+   - Reset the `deploy` and `root` passwords.
+4. Reboot back into normal mode and immediately continue with incident steps below.
+
+### Recovery path B: Attach volume to a clean helper VPS
+
+If rescue mode is unavailable:
+
+1. Power off compromised VPS.
+2. Detach its disk and attach it as a secondary volume to a clean helper VPS.
+3. Mount the compromised disk read-only first for evidence collection, then read-write for recovery changes.
+4. Perform the same offline fixes as Recovery path A.
+5. Reattach disk to original VPS and boot.
+
+### Recovery path C: Serial console / out-of-band console
+
+If provider offers VNC/serial console:
+
+- Use console login to revert bad SSH/firewall settings.
+- Re-enable a known-good sudo user and key-based SSH access.
+- Capture logs before further changes.
+
+### Recovery path D (last resort): Rebuild immediately
+
+If none of the above is available or trust is low:
+
+- Snapshot the current disk for forensics.
+- Destroy and rebuild a fresh VPS (Step 3).
+- Restore only clean data backups (Step 4).
+
+> **Important:** regaining shell access is not full recovery. Assume full compromise, rotate all credentials (Step 5), and complete rebuild/hardening.
+
 ---
 
 ## 2) Collect evidence before wiping
